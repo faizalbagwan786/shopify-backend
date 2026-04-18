@@ -13,29 +13,38 @@ const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 // 🔥 CREATE ORDER
 app.post("/create-order", async (req, res) => {
   try {
-    const { price, variant_id, properties } = req.body;
+    const { price, properties } = req.body;
 
-    // 🚨 VALIDATION
-    if (!price || !variant_id) {
+    // 🚨 VALIDATION (FIXED)
+    if (!price) {
       return res.status(400).json({
-        error: "Missing price or variant_id"
+        error: "Missing price"
       });
     }
 
-    // 🧠 Ensure properties is always an array
+    // 🧠 Ensure properties is always array
     const safeProperties = Array.isArray(properties) ? properties : [];
 
-    // ✅ MAIN PRODUCT
+    // 🧠 Extract image (optional)
+    const imageProperty = safeProperties.find(p => p.name === "Image");
+    const imageSrc = imageProperty?.value || null;
+
+    // ✅ MAIN PRODUCT (NO VARIANT_ID)
     const line_items = [
       {
-        variant_id: Number(variant_id),
-        quantity: 1,
+        title: "Custom Size Product",
         price: Number(price),
-        properties: safeProperties
+        quantity: 1,
+        properties: safeProperties,
+        ...(imageSrc && {
+          image: {
+            src: imageSrc
+          }
+        })
       }
     ];
 
-    // ✅ DETECT MEASUREMENT ASSIST
+    // ✅ ADD MEASUREMENT ASSIST IF SELECTED
     const hasMeasurementAssist = safeProperties.some(
       (p) =>
         p.name === "Measurement Assist" &&
@@ -44,7 +53,7 @@ app.post("/create-order", async (req, res) => {
 
     if (hasMeasurementAssist) {
       line_items.push({
-        title: "Measurement Assist - Video Call",
+        title: "Measurement Assist – Video Call",
         price: 30,
         quantity: 1
       });
