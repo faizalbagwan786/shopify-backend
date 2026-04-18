@@ -10,39 +10,39 @@ app.use(express.json());
 const SHOP = process.env.SHOP;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 
-// 🔥 MAIN ROUTE
+// 🔥 CREATE ORDER
 app.post("/create-order", async (req, res) => {
   try {
-    const {
-      price,
-      width,
-      height,
-      unit,
-      variant_id,
-      measurementAssist
-    } = req.body;
+    const { price, variant_id, properties } = req.body;
 
     // 🚨 VALIDATION
     if (!price || !variant_id) {
-      return res.status(400).json({ error: "Missing price or variant_id" });
+      return res.status(400).json({
+        error: "Missing price or variant_id"
+      });
     }
+
+    // 🧠 Ensure properties is always an array
+    const safeProperties = Array.isArray(properties) ? properties : [];
 
     // ✅ MAIN PRODUCT
     const line_items = [
       {
-        variant_id: variant_id, // IMPORTANT → shows image
+        variant_id: Number(variant_id),
         quantity: 1,
-        price: price,
-        properties: [
-          { name: "Width", value: width || "-" },
-          { name: "Height", value: height || "-" },
-          { name: "Unit", value: unit || "Inches" }
-        ]
+        price: Number(price),
+        properties: safeProperties
       }
     ];
 
-    // ✅ OPTIONAL MEASUREMENT ASSIST
-    if (measurementAssist) {
+    // ✅ DETECT MEASUREMENT ASSIST
+    const hasMeasurementAssist = safeProperties.some(
+      (p) =>
+        p.name === "Measurement Assist" &&
+        String(p.value).toLowerCase() === "yes"
+    );
+
+    if (hasMeasurementAssist) {
       line_items.push({
         title: "Measurement Assist - Video Call",
         price: 30,
@@ -55,8 +55,8 @@ app.post("/create-order", async (req, res) => {
       `https://${SHOP}/admin/api/2024-04/draft_orders.json`,
       {
         draft_order: {
-          line_items: line_items,
-          currency: "USD", // 💥 FORCE USD
+          line_items,
+          currency: "USD",
           use_customer_default_address: true
         }
       },
@@ -68,13 +68,17 @@ app.post("/create-order", async (req, res) => {
       }
     );
 
+    // ✅ RETURN CHECKOUT URL
     res.json({
       invoice_url: response.data.draft_order.invoice_url
     });
 
   } catch (error) {
-    console.error(error.response?.data || error.message);
-    res.status(500).json({ error: "error creating order" });
+    console.error("❌ Shopify Error:", error.response?.data || error.message);
+
+    res.status(500).json({
+      error: "Failed to create draft order"
+    });
   }
 });
 
@@ -83,6 +87,8 @@ app.get("/", (req, res) => {
   res.send("Backend running 🚀");
 });
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+// 🚀 START SERVER
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
