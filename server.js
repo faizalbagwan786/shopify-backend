@@ -13,50 +13,58 @@ const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 // 🔥 CREATE ORDER
 app.post("/create-order", async (req, res) => {
   try {
-    const { price, properties } = req.body;
+    console.log("Incoming cart:", req.body);
+    const { cart } = req.body;
 
-    // 🚨 VALIDATION (FIXED)
-    if (!price) {
-      return res.status(400).json({
-        error: "Missing price"
-      });
+    if (!cart || !Array.isArray(cart)) {
+      return res.status(400).json({ error: "Invalid cart data" });
     }
 
-    // 🧠 Ensure properties is always array
-    const safeProperties = Array.isArray(properties) ? properties : [];
+    const line_items = [];
 
-    // 🧠 Extract image (optional)
-    const imageProperty = safeProperties.find(p => p.name === "Image");
-    const imageSrc = imageProperty?.value || null;
+    for (const item of cart) {
+      // 🧠 Ensure properties is an array of { name, value }
+      let safeProperties = [];
+      if (Array.isArray(item.properties)) {
+        safeProperties = item.properties;
+      } else if (item.properties && typeof item.properties === 'object') {
+        safeProperties = Object.keys(item.properties).map(key => ({
+          name: key,
+          value: item.properties[key]
+        }));
+      }
 
-    // ✅ MAIN PRODUCT (NO VARIANT_ID)
-    const line_items = [
-      {
-        title: "Custom Size Product",
-        price: Number(price),
-        quantity: 1,
+      // 🧠 Extract image
+      const imageProperty = safeProperties.find(p => p.name === "Image");
+      const imageSrc = imageProperty?.value || item.image || null;
+
+      // ✅ MAIN PRODUCT
+      line_items.push({
+        title: item.title || "Custom Size Product",
+        price: Number(item.price),
+        quantity: Number(item.quantity || 1),
         properties: safeProperties,
         ...(imageSrc && {
           image: {
             src: imageSrc
           }
         })
-      }
-    ];
-
-    // ✅ ADD MEASUREMENT ASSIST IF SELECTED
-    const hasMeasurementAssist = safeProperties.some(
-      (p) =>
-        p.name === "Measurement Assist" &&
-        String(p.value).toLowerCase() === "yes"
-    );
-
-    if (hasMeasurementAssist) {
-      line_items.push({
-        title: "Measurement Assist – Video Call",
-        price: 30,
-        quantity: 1
       });
+
+      // ✅ ADD MEASUREMENT ASSIST IF SELECTED
+      const hasMeasurementAssist = safeProperties.some(
+        (p) =>
+          p.name === "Measurement Assist" &&
+          String(p.value).toLowerCase() === "yes"
+      );
+
+      if (hasMeasurementAssist) {
+        line_items.push({
+          title: "Measurement Assist – Video Call",
+          price: 30,
+          quantity: 1
+        });
+      }
     }
 
     // 🚀 CREATE DRAFT ORDER
