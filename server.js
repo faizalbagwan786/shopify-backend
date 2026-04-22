@@ -34,8 +34,8 @@ app.post("/create-order", async (req, res) => {
         }));
       }
 
-      // 🧠 Extract image
-      const imageProperty = safeProperties.find(p => p.name === "Image");
+      // 🧠 Extract image — check _image prop (hidden), Image prop, or top-level image
+      const imageProperty = safeProperties.find(p => p.name === "Image" || p.name === "_image");
       const imageSrc = imageProperty?.value || item.image || null;
 
       // ✅ MAIN PRODUCT
@@ -43,12 +43,8 @@ app.post("/create-order", async (req, res) => {
         title: item.title || "Custom Size Product",
         price: Number(item.price),
         quantity: Number(item.quantity || 1),
-        properties: safeProperties,
-        ...(imageSrc && {
-          image: {
-            src: imageSrc
-          }
-        })
+        properties: safeProperties.filter(p => p.name !== "_image"),
+        ...(imageSrc && { image_url: imageSrc })
       });
 
       // ✅ ADD MEASUREMENT ASSIST IF SELECTED
