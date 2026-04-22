@@ -50,10 +50,8 @@ app.post("/create-order", async (req, res) => {
         };
       } else {
         node.title = item.title || "Custom Size Product";
-        node.originalUnitPrice = {
-          amount: parseFloat(item.price).toFixed(2),
-          currencyCode: "CAD"
-        };
+        // Shopify GraphQL expects a scalar string for originalUnitPrice, NOT an object.
+        node.originalUnitPrice = parseFloat(item.price).toFixed(2);
       }
 
       lineItemsNode.push(node);
@@ -69,10 +67,7 @@ app.post("/create-order", async (req, res) => {
         lineItemsNode.push({
           title: "Measurement Assist – Video Call",
           quantity: 1,
-          originalUnitPrice: {
-            amount: "30.00",
-            currencyCode: "CAD"
-          }
+          originalUnitPrice: "30.00"
         });
       }
     }
