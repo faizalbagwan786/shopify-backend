@@ -112,7 +112,7 @@ app.post("/create-order", async (req, res) => {
 
     if (response.data.errors) {
       console.error("GraphQL Errors:", response.data.errors);
-      return res.status(500).json({ error: "Failed to create draft order API" });
+      return res.status(500).json({ error: "GraphQL Error: " + response.data.errors[0].message });
     }
 
     if (response.data.data?.draftOrderCreate?.userErrors?.length > 0) {
