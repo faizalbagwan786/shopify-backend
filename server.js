@@ -54,10 +54,6 @@ app.post("/create-order", async (req, res) => {
           amount: parseFloat(item.price).toFixed(2),
           currencyCode: "CAD"
         };
-        // Explicitly set the image for custom line items without a native variant
-        if (item.image && item.image.startsWith('http')) {
-          node.imageUrl = item.image;
-        }
       }
 
       lineItemsNode.push(node);
