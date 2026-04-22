@@ -20,60 +20,88 @@ app.post("/create-order", async (req, res) => {
       return res.status(400).json({ error: "Invalid cart data" });
     }
 
-    const line_items = [];
+    const lineItemsNode = [];
 
     for (const item of cart) {
       // 🧠 Ensure properties is an array of { name, value }
       let safeProperties = [];
       if (Array.isArray(item.properties)) {
-        safeProperties = item.properties;
+        safeProperties = item.properties.map(p => ({ key: p.name || p.key, value: String(p.value) }));
       } else if (item.properties && typeof item.properties === 'object') {
         safeProperties = Object.keys(item.properties).map(key => ({
-          name: key,
-          value: item.properties[key]
+          key: key,
+          value: String(item.properties[key])
         }));
       }
 
-      // 🧠 Extract image — check _image prop (hidden), Image prop, or top-level image
-      const imageProperty = safeProperties.find(p => p.name === "Image" || p.name === "_image");
-      const imageSrc = imageProperty?.value || item.image || null;
-
-      // ✅ MAIN PRODUCT
-      const lineItem = {
-        title: item.title || "Custom Size Product",
-        price: Number(item.price),
+      // Add actual variant or custom fallback
+      const node = {
         quantity: Number(item.quantity || 1),
-        properties: safeProperties
+        customAttributes: safeProperties
       };
 
-      line_items.push(lineItem);
+      if (item.variant_id) {
+        // 🔥 Use Shopify's new GraphQL priceOverride feature (v2025-01+) 
+        // to forcefully override the variant price while KEEPING the native image!
+        node.variantId = `gid://shopify/ProductVariant/${item.variant_id}`;
+        node.priceOverride = {
+          amount: parseFloat(item.price).toFixed(2),
+          currencyCode: "CAD"
+        };
+      } else {
+        node.title = item.title || "Custom Size Product";
+        node.originalUnitPrice = {
+          amount: parseFloat(item.price).toFixed(2),
+          currencyCode: "CAD"
+        };
+      }
+
+      lineItemsNode.push(node);
 
       // ✅ ADD MEASUREMENT ASSIST IF SELECTED
       const hasMeasurementAssist = safeProperties.some(
         (p) =>
-          p.name === "Measurement Assist" &&
-          String(p.value).toLowerCase() === "yes"
+          p.key === "Measurement Assist" &&
+          p.value.toLowerCase() === "yes"
       );
 
       if (hasMeasurementAssist) {
-        line_items.push({
+        lineItemsNode.push({
           title: "Measurement Assist – Video Call",
-          price: 30,
-          quantity: 1
+          quantity: 1,
+          originalUnitPrice: {
+            amount: "30.00",
+            currencyCode: "CAD"
+          }
         });
       }
     }
 
-    // 🚀 CREATE DRAFT ORDER
-    const response = await axios.post(
-      `https://${SHOP}/admin/api/2024-04/draft_orders.json`,
-      {
-        draft_order: {
-          line_items,
-          currency: "USD",
-          use_customer_default_address: true
+    // 🚀 CREATE DRAFT ORDER VIA GRAPHQL
+    const query = `
+      mutation draftOrderCreate($input: DraftOrderInput!) {
+        draftOrderCreate(input: $input) {
+          draftOrder {
+            invoiceUrl
+          }
+          userErrors {
+            field
+            message
+          }
         }
-      },
+      }
+    `;
+
+    const variables = {
+      input: {
+        lineItems: lineItemsNode,
+        useCustomerDefaultAddress: true
+      }
+    };
+
+    const response = await axios.post(
+      `https://${SHOP}/admin/api/2025-01/graphql.json`,
+      { query, variables },
       {
         headers: {
           "X-Shopify-Access-Token": ACCESS_TOKEN,
@@ -82,9 +110,19 @@ app.post("/create-order", async (req, res) => {
       }
     );
 
+    if (response.data.errors) {
+      console.error("GraphQL Errors:", response.data.errors);
+      return res.status(500).json({ error: "Failed to create draft order API" });
+    }
+
+    if (response.data.data?.draftOrderCreate?.userErrors?.length > 0) {
+      console.error("User Errors:", response.data.data.draftOrderCreate.userErrors);
+      return res.status(500).json({ error: response.data.data.draftOrderCreate.userErrors[0].message });
+    }
+
     // ✅ RETURN CHECKOUT URL
     res.json({
-      invoice_url: response.data.draft_order.invoice_url
+      invoice_url: response.data.data.draftOrderCreate.draftOrder.invoiceUrl
     });
 
   } catch (error) {
