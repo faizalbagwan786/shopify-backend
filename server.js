@@ -45,10 +45,6 @@ app.post("/create-order", async (req, res) => {
         quantity: Number(item.quantity || 1),
         properties: safeProperties
       };
-      
-      if (item.variant_id) {
-        lineItem.variant_id = Number(item.variant_id);
-      }
 
       line_items.push(lineItem);
 
