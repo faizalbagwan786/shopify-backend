@@ -39,13 +39,18 @@ app.post("/create-order", async (req, res) => {
       const imageSrc = imageProperty?.value || item.image || null;
 
       // ✅ MAIN PRODUCT
-      line_items.push({
+      const lineItem = {
         title: item.title || "Custom Size Product",
         price: Number(item.price),
         quantity: Number(item.quantity || 1),
-        properties: safeProperties.filter(p => p.name !== "_image"),
-        ...(imageSrc && { image_url: imageSrc })
-      });
+        properties: safeProperties
+      };
+      
+      if (item.variant_id) {
+        lineItem.variant_id = Number(item.variant_id);
+      }
+
+      line_items.push(lineItem);
 
       // ✅ ADD MEASUREMENT ASSIST IF SELECTED
       const hasMeasurementAssist = safeProperties.some(
