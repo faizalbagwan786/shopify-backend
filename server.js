@@ -16,6 +16,23 @@ app.post("/create-order", async (req, res) => {
     console.log("Incoming cart:", req.body);
     const { cart, shippingRate, shippingAddress } = req.body;
 
+    // Define Canadian Tax Rates according to the client's chart
+    const taxRates = {
+      "Alberta": 0.05,
+      "British Columbia": 0.12,
+      "Manitoba": 0.12,
+      "New Brunswick": 0.15,
+      "Newfoundland and Labrador": 0.15,
+      "Northwest Territories": 0.05,
+      "Nova Scotia": 0.14,
+      "Nunavut": 0.05,
+      "Ontario": 0.13,
+      "Prince Edward Island": 0.15,
+      "Quebec": 0.14975,
+      "Saskatchewan": 0.11,
+      "Yukon": 0.05
+    };
+
     if (!cart || !Array.isArray(cart)) {
       return res.status(400).json({ error: "Invalid cart data" });
     }
@@ -70,6 +87,44 @@ app.post("/create-order", async (req, res) => {
           quantity: 1,
           originalUnitPrice: "30.00",
           taxable: true
+        });
+      }
+    }
+
+    // 🧮 CALCULATE CUSTOM TAXES IF PROVINCE IS PROVIDED
+    if (shippingAddress && shippingAddress.province && taxRates[shippingAddress.province]) {
+      let subtotal = 0;
+      
+      // Calculate cart subtotal
+      cart.forEach(item => {
+        subtotal += (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1);
+      });
+
+      // Add measurement assist to subtotal if it was added
+      const hasMeasurementAssist = cart.some(
+        item => item.properties && (item.properties["Measurement Assist"] === "Yes" || item.properties["Measurement Assist"] === true)
+      );
+      if (hasMeasurementAssist) {
+        subtotal += 30.00;
+      }
+
+      // Add shipping rate to subtotal before tax
+      let shippingCost = 0;
+      if (shippingRate && shippingRate.price) {
+        shippingCost = parseFloat(shippingRate.price) || 0;
+      }
+
+      const taxableAmount = subtotal + shippingCost;
+      const taxRate = taxRates[shippingAddress.province];
+      const taxAmount = taxableAmount * taxRate;
+
+      // Add Tax as a Custom Line Item
+      if (taxAmount > 0) {
+        lineItemsNode.push({
+          title: `Estimated Taxes (${shippingAddress.province})`,
+          quantity: 1,
+          originalUnitPrice: taxAmount.toFixed(2),
+          taxable: false // Do not tax the tax!
         });
       }
     }
