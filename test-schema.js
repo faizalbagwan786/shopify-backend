@@ -2,7 +2,7 @@ require('dotenv').config();
 const axios = require('axios');
 
 async function test() {
-  const q = `query { __type(name: "DraftOrderLineItemInput") { inputFields { name } } }`;
+  const q = `query { __type(name: "DraftOrderInput") { inputFields { name } } }`;
   try {
     const res = await axios.post(`https://${process.env.SHOP}/admin/api/2025-01/graphql.json`, 
       { query: q }, 
