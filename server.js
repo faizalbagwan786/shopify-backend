@@ -37,7 +37,8 @@ app.post("/create-order", async (req, res) => {
       // Add actual variant or custom fallback
       const node = {
         quantity: Number(item.quantity || 1),
-        customAttributes: safeProperties
+        customAttributes: safeProperties,
+        taxable: true
       };
 
       if (item.variant_id) {
@@ -67,7 +68,8 @@ app.post("/create-order", async (req, res) => {
         lineItemsNode.push({
           title: "Measurement Assist – Video Call",
           quantity: 1,
-          originalUnitPrice: "30.00"
+          originalUnitPrice: "30.00",
+          taxable: true
         });
       }
     }
