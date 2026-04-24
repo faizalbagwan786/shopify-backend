@@ -14,7 +14,7 @@ const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 app.post("/create-order", async (req, res) => {
   try {
     console.log("Incoming cart:", req.body);
-    const { cart, shippingRate } = req.body;
+    const { cart, shippingRate, shippingAddress } = req.body;
 
     if (!cart || !Array.isArray(cart)) {
       return res.status(400).json({ error: "Invalid cart data" });
@@ -101,6 +101,15 @@ app.post("/create-order", async (req, res) => {
       variables.input.shippingLine = {
         title: shippingRate.title,
         price: parseFloat(shippingRate.price).toFixed(2)
+      };
+    }
+
+    // ✅ PRE-FILL SHIPPING ADDRESS SO TAXES CALCULATE INSTANTLY
+    if (shippingAddress && shippingAddress.country && shippingAddress.province) {
+      variables.input.shippingAddress = {
+        country: shippingAddress.country,
+        province: shippingAddress.province,
+        zip: shippingAddress.zip || ""
       };
     }
 
