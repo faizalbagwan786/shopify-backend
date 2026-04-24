@@ -14,7 +14,7 @@ const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 app.post("/create-order", async (req, res) => {
   try {
     console.log("Incoming cart:", req.body);
-    const { cart } = req.body;
+    const { cart, shippingRate } = req.body;
 
     if (!cart || !Array.isArray(cart)) {
       return res.status(400).json({ error: "Invalid cart data" });
@@ -93,6 +93,14 @@ app.post("/create-order", async (req, res) => {
         useCustomerDefaultAddress: true
       }
     };
+
+    // ✅ APPLY SHIPPING RATE IF PROVIDED FROM CART
+    if (shippingRate && shippingRate.title && shippingRate.price) {
+      variables.input.shippingLine = {
+        title: shippingRate.title,
+        price: parseFloat(shippingRate.price).toFixed(2)
+      };
+    }
 
     const response = await axios.post(
       `https://${SHOP}/admin/api/2025-01/graphql.json`,
